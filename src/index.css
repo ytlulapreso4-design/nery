@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Anton', sans-serif;
+    --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  html {
+    background-color: #050505;
+    color: #F4F4F5;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+    position: relative !important;
+  }
+
+  body {
+    background-color: #050505;
+    color: #F4F4F5;
+    font-family: var(--font-body);
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+    position: relative !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+  }
+}
+
+.marquee-container {
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden !important;
+  position: relative;
+  contain: paint;
+}
+
+.font-display {
+  font-family: 'Anton', sans-serif;
+  letter-spacing: 0.025em;
+}
+
+.font-body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chrome & Silver Outline Text Effects */
+.text-stroke-silver {
+  -webkit-text-stroke: 1.25px rgba(212, 212, 216, 0.45);
+  color: transparent;
+}
+
+.text-stroke-chrome {
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.72);
+  color: transparent;
+}
+
+/* Metallic Chrome Text Gradient */
+.text-chrome {
+  background: linear-gradient(180deg, #FFFFFF 0%, #E4E4E7 45%, #71717A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Subtle Brushed Silver Glows */
+.glow-silver-sm {
+  box-shadow: 0 0 24px -6px rgba(255, 255, 255, 0.18);
+}
+
+.glow-silver {
+  box-shadow: 0 0 40px -8px rgba(228, 228, 231, 0.2);
+}
+
+/* Sound Wave Bars Animation */
+@keyframes soundWave {
+  0%, 100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-wave-1 {
+  animation: soundWave 1.4s ease-in-out infinite;
+  transform-origin: bottom;
+}
+.animate-wave-2 {
+  animation: soundWave 1.1s ease-in-out infinite 0.15s;
+  transform-origin: bottom;
+}
+.animate-wave-3 {
+  animation: soundWave 1.6s ease-in-out infinite 0.3s;
+  transform-origin: bottom;
+}
+.animate-wave-4 {
+  animation: soundWave 1.2s ease-in-out infinite 0.45s;
+  transform-origin: bottom;
+}
+.animate-wave-5 {
+  animation: soundWave 1.5s ease-in-out infinite 0.2s;
+  transform-origin: bottom;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave-1,
+  .animate-wave-2,
+  .animate-wave-3,
+  .animate-wave-4,
+  .animate-wave-5 {
+    animation: none !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* GPU Hardware-Accelerated Marquee */
+@keyframes marqueeScroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes marqueeScrollReverse {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: marqueeScroll 26s linear infinite;
+}
+
+.animate-marquee-reverse {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: marqueeScrollReverse 30s linear infinite;
+}

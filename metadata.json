@@ -1,0 +1,8 @@
+{
+  "name": "DJ NERY | Eletrofunk",
+  "description": "Site oficial do DJ NERY. Eletrofunk direto de Goiânia para festivais, clubs e eventos em todo o Brasil. Contratação de shows e lançamentos no Spotify.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
