@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { IntroEntrance } from './components/IntroEntrance.tsx';
 import { Navbar } from './components/Navbar.tsx';
@@ -18,80 +18,46 @@ import { Footer } from './components/Footer.tsx';
 export default function App() {
   const [isRevealing, setIsRevealing] = useState(false);
   const [introDone, setIntroDone] = useState(false);
-  const [needsTap, setNeedsTap] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const userExplicitlyMutedRef = useRef(false);
-  const revealTriggeredRef = useRef(false);
 
-  const startRevealSequence = useCallback(() => {
-    if (revealTriggeredRef.current) return;
-    revealTriggeredRef.current = true;
-    setIsRevealing(true);
-    window.setTimeout(() => {
-      setIntroDone(true);
-    }, 950);
-  }, []);
-
-  // Synchronous tap handler when mobile browser requires an in-page tap to allow audio
-  const handleTapEnter = useCallback(() => {
+  useEffect(() => {
     const video = heroVideoRef.current;
-    userExplicitlyMutedRef.current = false;
     if (video) {
-      video.muted = false;
       video.volume = 1.0;
+      video.muted = false;
       const p = video.play();
       if (p !== undefined) {
         p.then(() => {
           setIsMuted(false);
-        }).catch(() => {});
+        }).catch(() => {
+          video.muted = true;
+          setIsMuted(true);
+          video.play().catch(() => {});
+        });
       }
     }
-    setNeedsTap(false);
-    startRevealSequence();
-  }, [startRevealSequence]);
 
-  useEffect(() => {
-    const video = heroVideoRef.current;
-    if (!video) {
-      const t = window.setTimeout(startRevealSequence, 1000);
-      return () => window.clearTimeout(t);
-    }
+    const revealTimer = window.setTimeout(() => {
+      setIsRevealing(true);
+    }, 950);
 
-    video.volume = 1.0;
-    video.muted = false;
+    const doneTimer = window.setTimeout(() => {
+      setIntroDone(true);
+    }, 1900);
 
-    const p = video.play();
-    if (p !== undefined) {
-      p.then(() => {
-        // Browser permitted cold unmuted autoplay -> auto-open after logo intro
-        setIsMuted(false);
-        setNeedsTap(false);
-        window.setTimeout(startRevealSequence, 1000);
-      }).catch(() => {
-        // Mobile Safari/Chrome blocked unmuted autoplay until user taps ->
-        // keep video pre-buffering silently and invite single tap on the intro logo
-        video.muted = true;
-        setIsMuted(true);
-        video.play().catch(() => {});
-        setNeedsTap(true);
-      });
-    } else {
-      window.setTimeout(startRevealSequence, 1000);
-    }
-  }, [startRevealSequence]);
+    return () => {
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(doneTimer);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#050505] text-[#F4F4F5] selection:bg-white selection:text-black flex flex-col font-body">
-      {/* Split-curtain entrance synced with Hero's single-element logo and audio unlock */}
-      {!introDone && (
-        <IntroEntrance
-          isRevealing={isRevealing}
-          needsTap={needsTap}
-          onTapEnter={handleTapEnter}
-        />
-      )}
+      {/* Automatic split-curtain entrance synced with Hero's single-element logo */}
+      {!introDone && <IntroEntrance isRevealing={isRevealing} />}
 
       {/* Fixed Header */}
       <Navbar />
