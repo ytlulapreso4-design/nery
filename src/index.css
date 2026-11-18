@@ -174,3 +174,17 @@
   will-change: transform;
   animation: marqueeScrollReverse 30s linear infinite;
 }
+
+@keyframes chromeSweep {
+  0% {
+    transform: translateX(-140%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(240%) skewX(-20deg);
+  }
+}
+
+.animate-chrome-sweep {
+  animation: chromeSweep 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
