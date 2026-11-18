@@ -81,7 +81,6 @@ export default function App() {
           setIsMuted={setIsMuted}
           userExplicitlyMutedRef={userExplicitlyMutedRef}
           isRevealing={isRevealing}
-          introDone={introDone}
         />
 
         {/* MARQUEE DIVIDER (LOOP CONTÍNUO) */}

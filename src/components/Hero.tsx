@@ -9,7 +9,6 @@ interface HeroProps {
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>;
   userExplicitlyMutedRef: React.MutableRefObject<boolean>;
   isRevealing: boolean;
-  introDone: boolean;
 }
 
 export const MUTE_HERO_EVENT = 'dj-nery:mute-hero';
@@ -24,7 +23,6 @@ export const Hero: React.FC<HeroProps> = ({
   setIsMuted,
   userExplicitlyMutedRef,
   isRevealing,
-  introDone,
 }) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -183,33 +181,19 @@ export const Hero: React.FC<HeroProps> = ({
           <span>Goiânia, GO</span>
         </motion.div>
 
-        {/* Single-Element Logo Transition floating cleanly over split curtain */}
+        {/* Custom Artist Logo Mark (Target for IntroEntrance connection) */}
         <motion.div
-          initial={{ opacity: 0, scale: 1.18, y: 52 }}
-          animate={
-            isRevealing
-              ? { opacity: 1, scale: 1, y: 0 }
-              : { opacity: 1, scale: 1.18, y: 52 }
-          }
-          transition={{
-            duration: isRevealing ? 0.9 : 0.65,
-            ease: isRevealing ? [0.76, 0, 0.24, 1] : [0.16, 1, 0.3, 1],
-          }}
-          className={`relative ${introDone ? 'z-20' : 'z-[55]'} my-1 select-none w-full flex justify-center will-change-transform pointer-events-none`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isRevealing ? 1 : 0 }}
+          transition={{ duration: 0.3, delay: 0.5, ease: 'easeOut' }}
+          className="relative z-20 my-1 select-none w-full flex justify-center"
         >
-          <div className="relative overflow-hidden px-4 py-2">
-            <img
-              src={ARTIST_CONFIG.media.logo.path}
-              alt="DJ NERY"
-              className="h-24 sm:h-36 md:h-44 w-auto object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.85)] relative z-10"
-            />
-            {!isRevealing && (
-              <div
-                aria-hidden="true"
-                className="animate-chrome-sweep absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent z-20 pointer-events-none"
-              />
-            )}
-          </div>
+          <img
+            id="hero-main-logo"
+            src={ARTIST_CONFIG.media.logo.path}
+            alt="DJ NERY"
+            className="h-24 sm:h-36 md:h-44 w-auto object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.85)]"
+          />
         </motion.div>
 
         {/* Primary Display Headline */}
