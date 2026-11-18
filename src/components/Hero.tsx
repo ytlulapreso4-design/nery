@@ -1,9 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { MessageCircle, Volume2, VolumeX, Disc3 } from 'lucide-react';
 import { ARTIST_CONFIG } from '../config/media.ts';
 
 interface HeroProps {
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  isMuted: boolean;
+  setIsMuted: React.Dispatch<React.SetStateAction<boolean>>;
+  userExplicitlyMutedRef: React.MutableRefObject<boolean>;
   isRevealing: boolean;
   introDone: boolean;
 }
@@ -14,12 +18,16 @@ export const requestHeroMute = () => {
   window.dispatchEvent(new CustomEvent(MUTE_HERO_EVENT));
 };
 
-export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
+export const Hero: React.FC<HeroProps> = ({
+  videoRef,
+  isMuted,
+  setIsMuted,
+  userExplicitlyMutedRef,
+  isRevealing,
+  introDone,
+}) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const userExplicitlyMutedRef = useRef(false);
 
   const muteVideo = useCallback(() => {
     const video = videoRef.current;
@@ -28,30 +36,28 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
       video.muted = true;
     }
     setIsMuted(true);
-  }, []);
+  }, [videoRef, userExplicitlyMutedRef, setIsMuted]);
 
-  const tryPlayWithSound = useCallback(async (): Promise<boolean> => {
+  // Synchronous unmute + play helper for iOS Safari / Android Chrome gesture stack
+  const unlockSoundSync = useCallback(() => {
     const video = videoRef.current;
-    if (!video || userExplicitlyMutedRef.current) return false;
+    if (!video || userExplicitlyMutedRef.current) return;
 
     video.muted = false;
     video.volume = 1.0;
-
-    try {
-      await video.play();
-      if (!video.muted && !video.paused) {
-        setIsMuted(false);
-        return true;
-      }
-    } catch {
-      // Autoplay with sound was blocked by browser policy; keep muted playback running
-      // until the first genuine user activation gesture (click/tap/keydown).
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(() => {});
+    const p = video.play();
+    if (p !== undefined) {
+      p.then(() => {
+        if (!video.muted && !video.paused) {
+          setIsMuted(false);
+        }
+      }).catch(() => {
+        video.muted = true;
+        setIsMuted(true);
+        video.play().catch(() => {});
+      });
     }
-    return false;
-  }, []);
+  }, [videoRef, userExplicitlyMutedRef, setIsMuted]);
 
   const handleTimeUpdate = () => {
     const video = videoRef.current;
@@ -75,67 +81,35 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
   };
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    let unlocked = false;
-
-    const cleanupGestures = () => {
-      window.removeEventListener('pointerdown', handleGesture, true);
-      window.removeEventListener('touchstart', handleGesture, true);
-      window.removeEventListener('touchend', handleGesture, true);
-      window.removeEventListener('click', handleGesture, true);
-      window.removeEventListener('keydown', handleGesture, true);
-    };
-
-    const handleGesture = (e: Event) => {
-      // Do not auto-unmute if the user is clicking the mute button itself or a Spotify link
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('[data-mute-control="true"]') || target?.closest('a[href*="spotify"]')) {
-        return;
-      }
-
-      if (userExplicitlyMutedRef.current || unlocked) {
-        cleanupGestures();
-        return;
-      }
-
-      tryPlayWithSound().then((success) => {
-        if (success) {
-          unlocked = true;
-          cleanupGestures();
-        }
-      });
-    };
-
-    // Attempt immediate unmuted playback on entry
-    tryPlayWithSound().then((success) => {
-      if (success) {
-        unlocked = true;
-        cleanupGestures();
-      }
-    });
-
-    // Listen in capture phase for real user activation gestures until audio is active
-    window.addEventListener('pointerdown', handleGesture, true);
-    window.addEventListener('touchstart', handleGesture, true);
-    window.addEventListener('touchend', handleGesture, true);
-    window.addEventListener('click', handleGesture, true);
-    window.addEventListener('keydown', handleGesture, true);
-
-    // Mute when user clicks Spotify or plays another media item
     const handleExternalMute = () => {
-      unlocked = true;
-      cleanupGestures();
       muteVideo();
     };
     window.addEventListener(MUTE_HERO_EVENT, handleExternalMute);
 
-    return () => {
-      cleanupGestures();
-      window.removeEventListener(MUTE_HERO_EVENT, handleExternalMute);
+    // Fallback listener on real activation events (click/touchend/keydown) in case sound is still muted
+    const handleGestureUnlock = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-mute-control="true"]') || target?.closest('a[href*="spotify"]')) {
+        return;
+      }
+      if (userExplicitlyMutedRef.current) return;
+      const video = videoRef.current;
+      if (video && (video.muted || video.paused)) {
+        unlockSoundSync();
+      }
     };
-  }, [tryPlayWithSound, muteVideo]);
+
+    window.addEventListener('click', handleGestureUnlock, true);
+    window.addEventListener('touchend', handleGestureUnlock, true);
+    window.addEventListener('keydown', handleGestureUnlock, true);
+
+    return () => {
+      window.removeEventListener(MUTE_HERO_EVENT, handleExternalMute);
+      window.removeEventListener('click', handleGestureUnlock, true);
+      window.removeEventListener('touchend', handleGestureUnlock, true);
+      window.removeEventListener('keydown', handleGestureUnlock, true);
+    };
+  }, [muteVideo, unlockSoundSync, videoRef, userExplicitlyMutedRef]);
 
   const toggleMute = () => {
     const video = videoRef.current;
@@ -145,7 +119,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
       muteVideo();
     } else {
       userExplicitlyMutedRef.current = false;
-      tryPlayWithSound();
+      unlockSoundSync();
     }
   };
 
@@ -163,12 +137,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
             playsInline
             preload="auto"
             onTimeUpdate={handleTimeUpdate}
-            onLoadedData={() => {
-              setVideoLoaded(true);
-              if (!userExplicitlyMutedRef.current && videoRef.current?.muted) {
-                tryPlayWithSound();
-              }
-            }}
+            onLoadedData={() => setVideoLoaded(true)}
             onError={() => setVideoError(true)}
             className={`w-full h-full object-cover object-center transition-opacity duration-700 brightness-110 contrast-105 ${
               videoLoaded ? 'opacity-95' : 'opacity-0'
@@ -226,7 +195,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
             duration: isRevealing ? 0.9 : 0.65,
             ease: isRevealing ? [0.76, 0, 0.24, 1] : [0.16, 1, 0.3, 1],
           }}
-          className={`relative ${introDone ? 'z-20' : 'z-[55]'} my-1 select-none w-full flex justify-center will-change-transform`}
+          className={`relative ${introDone ? 'z-20' : 'z-[55]'} my-1 select-none w-full flex justify-center will-change-transform pointer-events-none`}
         >
           <div className="relative overflow-hidden px-4 py-2">
             <img
