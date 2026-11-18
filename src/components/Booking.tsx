@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MessageCircle, Calendar, MapPin, Send, CheckCircle2, Disc3 } from 'lucide-react';
 import { ARTIST_CONFIG } from '../config/media.ts';
+import { requestHeroMute } from './Hero.tsx';
 
 export const Booking: React.FC = () => {
   const [eventType, setEventType] = useState('Festival');
@@ -205,6 +206,7 @@ export const Booking: React.FC = () => {
                     href={ARTIST_CONFIG.contacts.spotifyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={requestHeroMute}
                     className="text-white hover:text-zinc-300 transition-colors inline-flex items-center gap-1.5"
                   >
                     <Disc3 className="w-3.5 h-3.5" />

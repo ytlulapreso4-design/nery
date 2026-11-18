@@ -8,6 +8,12 @@ interface HeroProps {
   introDone: boolean;
 }
 
+export const MUTE_HERO_EVENT = 'dj-nery:mute-hero';
+
+export const requestHeroMute = () => {
+  window.dispatchEvent(new CustomEvent(MUTE_HERO_EVENT));
+};
+
 export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
@@ -15,20 +21,36 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const userExplicitlyMutedRef = useRef(false);
 
-  const enableSound = useCallback(() => {
+  const muteVideo = useCallback(() => {
     const video = videoRef.current;
-    if (!video || userExplicitlyMutedRef.current) return;
+    userExplicitlyMutedRef.current = true;
+    if (video) {
+      video.muted = true;
+    }
+    setIsMuted(true);
+  }, []);
+
+  const tryPlayWithSound = useCallback(async (): Promise<boolean> => {
+    const video = videoRef.current;
+    if (!video || userExplicitlyMutedRef.current) return false;
 
     video.muted = false;
     video.volume = 1.0;
-    const p = video.play();
-    if (p !== undefined) {
-      p.then(() => {
+
+    try {
+      await video.play();
+      if (!video.muted && !video.paused) {
         setIsMuted(false);
-      }).catch(() => {
-        // Browser policy blocked cold unmuted playback until user gesture
-      });
+        return true;
+      }
+    } catch {
+      // Autoplay with sound was blocked by browser policy; keep muted playback running
+      // until the first genuine user activation gesture (click/tap/keydown).
+      video.muted = true;
+      setIsMuted(true);
+      video.play().catch(() => {});
     }
+    return false;
   }, []);
 
   const handleTimeUpdate = () => {
@@ -39,86 +61,97 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
     const currentTime = video.currentTime;
     if (!duration || isNaN(duration)) return;
 
-    const fadeOutTime = 3.5;
-    const fadeInTime = 2.0;
+    const fadeOutTime = 1.5;
+    const fadeInTime = 1.0;
     const timeRemaining = duration - currentTime;
 
     if (timeRemaining <= fadeOutTime) {
-      video.volume = Math.max(0, timeRemaining / fadeOutTime);
+      video.volume = Math.max(0.15, timeRemaining / fadeOutTime);
     } else if (currentTime <= fadeInTime) {
-      video.volume = Math.min(1, Math.max(0.15, currentTime / fadeInTime));
+      video.volume = Math.min(1, Math.max(0.25, currentTime / fadeInTime));
     } else {
       video.volume = 1.0;
     }
   };
 
-  // Start playing background video immediately with sound on entry,
-  // and unlock instantaneously on first gesture if browser blocks cold audio.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    video.volume = 1.0;
-    video.muted = false;
+    let unlocked = false;
 
-    const initialPlay = video.play();
-    if (initialPlay !== undefined) {
-      initialPlay
-        .then(() => {
-          setIsMuted(false);
-        })
-        .catch(() => {
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch(() => {});
-        });
-    }
+    const cleanupGestures = () => {
+      window.removeEventListener('pointerdown', handleGesture, true);
+      window.removeEventListener('touchstart', handleGesture, true);
+      window.removeEventListener('touchend', handleGesture, true);
+      window.removeEventListener('click', handleGesture, true);
+      window.removeEventListener('keydown', handleGesture, true);
+    };
 
-    const handleGesture = () => {
-      if (!userExplicitlyMutedRef.current && videoRef.current && videoRef.current.muted) {
-        enableSound();
+    const handleGesture = (e: Event) => {
+      // Do not auto-unmute if the user is clicking the mute button itself or a Spotify link
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-mute-control="true"]') || target?.closest('a[href*="spotify"]')) {
+        return;
       }
-      cleanup();
+
+      if (userExplicitlyMutedRef.current || unlocked) {
+        cleanupGestures();
+        return;
+      }
+
+      tryPlayWithSound().then((success) => {
+        if (success) {
+          unlocked = true;
+          cleanupGestures();
+        }
+      });
     };
 
-    const cleanup = () => {
-      window.removeEventListener('touchstart', handleGesture);
-      window.removeEventListener('touchend', handleGesture);
-      window.removeEventListener('click', handleGesture);
-      window.removeEventListener('scroll', handleGesture);
-      window.removeEventListener('pointerdown', handleGesture);
-      window.removeEventListener('keydown', handleGesture);
-    };
+    // Attempt immediate unmuted playback on entry
+    tryPlayWithSound().then((success) => {
+      if (success) {
+        unlocked = true;
+        cleanupGestures();
+      }
+    });
 
-    window.addEventListener('touchstart', handleGesture, { passive: true, once: true });
-    window.addEventListener('touchend', handleGesture, { passive: true, once: true });
-    window.addEventListener('click', handleGesture, { passive: true, once: true });
-    window.addEventListener('scroll', handleGesture, { passive: true, once: true });
-    window.addEventListener('pointerdown', handleGesture, { passive: true, once: true });
-    window.addEventListener('keydown', handleGesture, { passive: true, once: true });
+    // Listen in capture phase for real user activation gestures until audio is active
+    window.addEventListener('pointerdown', handleGesture, true);
+    window.addEventListener('touchstart', handleGesture, true);
+    window.addEventListener('touchend', handleGesture, true);
+    window.addEventListener('click', handleGesture, true);
+    window.addEventListener('keydown', handleGesture, true);
+
+    // Mute when user clicks Spotify or plays another media item
+    const handleExternalMute = () => {
+      unlocked = true;
+      cleanupGestures();
+      muteVideo();
+    };
+    window.addEventListener(MUTE_HERO_EVENT, handleExternalMute);
 
     return () => {
-      cleanup();
+      cleanupGestures();
+      window.removeEventListener(MUTE_HERO_EVENT, handleExternalMute);
     };
-  }, [enableSound]);
+  }, [tryPlayWithSound, muteVideo]);
 
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
 
     if (!isMuted) {
-      userExplicitlyMutedRef.current = true;
-      video.muted = true;
-      setIsMuted(true);
+      muteVideo();
     } else {
       userExplicitlyMutedRef.current = false;
-      enableSound();
+      tryPlayWithSound();
     }
   };
 
   return (
     <section className="relative w-full max-w-[100vw] h-[100svh] min-h-[660px] flex items-center justify-center overflow-hidden bg-[#050505]">
-      {/* Background Video Layer (Bright, Vivid & Playing Immediately) */}
+      {/* Background Video Layer */}
       <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
         {!videoError && (
           <video
@@ -130,7 +163,12 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
             playsInline
             preload="auto"
             onTimeUpdate={handleTimeUpdate}
-            onLoadedData={() => setVideoLoaded(true)}
+            onLoadedData={() => {
+              setVideoLoaded(true);
+              if (!userExplicitlyMutedRef.current && videoRef.current?.muted) {
+                tryPlayWithSound();
+              }
+            }}
             onError={() => setVideoError(true)}
             className={`w-full h-full object-cover object-center transition-opacity duration-700 brightness-110 contrast-105 ${
               videoLoaded ? 'opacity-95' : 'opacity-0'
@@ -162,13 +200,13 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
         <div className="absolute bottom-0 left-0 right-0 h-44 bg-gradient-to-t from-[#050505] via-[#050505]/45 to-transparent z-10 pointer-events-none" />
       </div>
 
-      {/* Hero Foreground Content (No z-index on outer container so logo floats cleanly above intro curtain) */}
+      {/* Hero Foreground Content */}
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center flex flex-col items-center justify-center pt-16 sm:pt-20">
         {/* Clean Unboxed Origin Metadata */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 10 }}
-          transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-20 flex items-center justify-center gap-2.5 text-xs font-mono tracking-[0.2em] uppercase text-zinc-200 mb-5 drop-shadow"
         >
           <span>Eletrofunk</span>
@@ -176,19 +214,19 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
           <span>Goiânia, GO</span>
         </motion.div>
 
-        {/* Single-Element Seamless Logo Transition (Starts centered & scaled on dark curtain, settles smoothly into place) */}
+        {/* Single-Element Logo Transition floating cleanly over split curtain */}
         <motion.div
-          initial={{ opacity: 0, scale: 1.28, y: 56 }}
+          initial={{ opacity: 0, scale: 1.24, y: 58 }}
           animate={
             isRevealing
               ? { opacity: 1, scale: 1, y: 0 }
-              : { opacity: 1, scale: 1.28, y: 56 }
+              : { opacity: 1, scale: 1.24, y: 58 }
           }
           transition={{
-            duration: isRevealing ? 0.9 : 0.7,
-            ease: [0.16, 1, 0.3, 1],
+            duration: isRevealing ? 0.9 : 0.65,
+            ease: isRevealing ? [0.76, 0, 0.24, 1] : [0.16, 1, 0.3, 1],
           }}
-          className={`relative ${introDone ? 'z-20' : 'z-[55]'} my-1 select-none w-full flex justify-center`}
+          className={`relative ${introDone ? 'z-20' : 'z-[55]'} my-1 select-none w-full flex justify-center will-change-transform`}
         >
           <div className="relative overflow-hidden px-4 py-2">
             <img
@@ -209,7 +247,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
         <motion.h1
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 14 }}
-          transition={{ duration: 0.75, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.75, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-20 mt-5 font-display text-[clamp(2.25rem,4.5vw,3.75rem)] leading-[1.02] uppercase tracking-wide text-chrome max-w-3xl px-2 drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
           style={{ textWrap: 'balance' }}
         >
@@ -220,7 +258,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
         <motion.p
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 12 }}
-          transition={{ duration: 0.75, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.75, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-20 mt-4 text-sm sm:text-base text-zinc-100 font-body max-w-xl px-4 leading-relaxed drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]"
         >
           Graves de eletrofunk com pressão de festival, mixagem precisa e identidade de Goiânia para incendiar a pista do seu evento.
@@ -230,7 +268,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 12 }}
-          transition={{ duration: 0.75, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.75, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-20 mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto px-4 sm:px-0"
         >
           <button
@@ -249,6 +287,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
             href={ARTIST_CONFIG.contacts.spotifyUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={requestHeroMute}
             className="w-full sm:w-auto px-8 py-4 text-xs sm:text-sm font-semibold uppercase tracking-widest bg-black/65 hover:bg-black/85 text-white border border-white/35 hover:border-white active:scale-[0.98] transition-all backdrop-blur-md flex items-center justify-center gap-2.5 whitespace-nowrap shadow-lg"
           >
             <Disc3 className="w-4 h-4 text-zinc-200" />
@@ -260,6 +299,7 @@ export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
       {/* Dedicated Corner Sound Controller */}
       <button
         type="button"
+        data-mute-control="true"
         onClick={toggleMute}
         aria-label={isMuted ? 'Ativar som' : 'Desativar som'}
         className="absolute bottom-6 right-6 z-20 flex items-center gap-2 px-4 py-2.5 bg-black/80 hover:bg-black border border-white/25 hover:border-white/70 text-white text-xs font-mono backdrop-blur-md transition-all group cursor-pointer shadow-xl"

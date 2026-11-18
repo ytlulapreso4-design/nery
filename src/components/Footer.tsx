@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUp, Disc3, MessageCircle } from 'lucide-react';
 import { ARTIST_CONFIG } from '../config/media.ts';
+import { requestHeroMute } from './Hero.tsx';
 
 export const Footer: React.FC = () => {
   const scrollToTop = () => {
@@ -34,6 +35,7 @@ export const Footer: React.FC = () => {
               href={ARTIST_CONFIG.contacts.spotifyUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={requestHeroMute}
               className="inline-flex items-center gap-2.5 px-5 py-3 text-xs font-mono uppercase tracking-wider bg-white/[0.04] hover:bg-white/[0.1] border border-white/15 text-white hover:border-white/50 transition-all whitespace-nowrap"
             >
               <Disc3 className="w-4 h-4 text-zinc-300" />

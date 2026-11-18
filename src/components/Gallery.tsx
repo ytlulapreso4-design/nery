@@ -3,10 +3,18 @@ import { Camera, Film, ArrowUpRight } from 'lucide-react';
 import { ARTIST_CONFIG, GalleryItem } from '../config/media.ts';
 import { MediaSlot } from './MediaSlot.tsx';
 import { LightboxModal } from './LightboxModal.tsx';
+import { requestHeroMute } from './Hero.tsx';
 
 export const Gallery: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'image' | 'video'>('all');
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
+
+  const openItem = (item: GalleryItem) => {
+    if (item.type === 'video') {
+      requestHeroMute();
+    }
+    setSelectedItem(item);
+  };
 
   const allItems = ARTIST_CONFIG.media.gallery;
   const filteredItems = allItems.filter((item) => {
@@ -100,7 +108,7 @@ export const Gallery: React.FC = () => {
                 category={videoItem.category}
                 aspectRatio="aspect-[4/5] lg:aspect-auto lg:h-full lg:min-h-[540px]"
                 showPlayButton={true}
-                onClick={() => setSelectedItem(videoItem)}
+                onClick={() => openItem(videoItem)}
                 className="flex-1"
               />
               {videoItem.commentary && (
@@ -125,7 +133,7 @@ export const Gallery: React.FC = () => {
                     category={item.category}
                     aspectRatio="aspect-[16/10]"
                     objectPosition={item.objectPosition || 'object-center'}
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => openItem(item)}
                   />
                   {item.commentary && (
                     <div className="mt-3 pt-2.5 border-t border-white/10">
@@ -152,7 +160,7 @@ export const Gallery: React.FC = () => {
                   aspectRatio={item.type === 'video' ? 'aspect-[4/5] max-h-[560px]' : 'aspect-[4/3]'}
                   objectPosition={item.objectPosition || 'object-center'}
                   showPlayButton={item.type === 'video'}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => openItem(item)}
                 />
                 {item.commentary && (
                   <div className="mt-3 pt-2.5 border-t border-white/10">
@@ -181,6 +189,7 @@ export const Gallery: React.FC = () => {
             href={ARTIST_CONFIG.contacts.spotifyUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={requestHeroMute}
             className="inline-flex items-center gap-2 px-6 py-3.5 text-xs font-bold uppercase tracking-widest bg-white text-black hover:bg-zinc-200 transition-colors whitespace-nowrap shrink-0"
           >
             <span>Abrir Spotify</span>

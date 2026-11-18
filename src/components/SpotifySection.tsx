@@ -1,8 +1,25 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Disc3, ArrowUpRight, Headphones } from 'lucide-react';
 import { ARTIST_CONFIG } from '../config/media.ts';
+import { requestHeroMute } from './Hero.tsx';
 
 export const SpotifySection: React.FC = () => {
+  const spotifyIframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Detect when user clicks inside the cross-origin Spotify embed iframe
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      window.setTimeout(() => {
+        if (document.activeElement === spotifyIframeRef.current) {
+          requestHeroMute();
+        }
+      }, 0);
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => window.removeEventListener('blur', handleWindowBlur);
+  }, []);
+
   return (
     <section
       id="spotify"
@@ -33,6 +50,7 @@ export const SpotifySection: React.FC = () => {
                 href={ARTIST_CONFIG.contacts.spotifyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={requestHeroMute}
                 className="inline-flex items-center gap-2.5 px-6 py-3.5 text-xs font-bold uppercase tracking-widest bg-gradient-to-r from-white via-zinc-200 to-zinc-300 text-black hover:from-zinc-100 hover:to-white transition-all whitespace-nowrap shrink-0"
               >
                 <Disc3 className="w-4 h-4" />
@@ -46,6 +64,7 @@ export const SpotifySection: React.FC = () => {
           <div className="lg:col-span-7">
             <div className="p-3 sm:p-4 bg-[#0E0E11] border border-white/15 shadow-2xl">
               <iframe
+                ref={spotifyIframeRef}
                 title="Player Oficial DJ NERY no Spotify"
                 src={ARTIST_CONFIG.contacts.spotifyEmbedUrl}
                 width="100%"
@@ -61,6 +80,7 @@ export const SpotifySection: React.FC = () => {
                   href={ARTIST_CONFIG.contacts.spotifyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={requestHeroMute}
                   className="text-zinc-200 hover:text-white inline-flex items-center gap-1 transition-colors"
                 >
                   <span>Abrir no aplicativo</span>
