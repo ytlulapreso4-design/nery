@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { IntroEntrance } from './components/IntroEntrance.tsx';
 import { Navbar } from './components/Navbar.tsx';
@@ -18,16 +18,32 @@ import { Footer } from './components/Footer.tsx';
 export default function App() {
   const [isRevealing, setIsRevealing] = useState(false);
   const [introDone, setIntroDone] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const userExplicitlyMutedRef = useRef(false);
+  const revealTriggeredRef = useRef(false);
 
+  // Pre-buffer background video silently until visitor clicks "Conhecer artista"
   useEffect(() => {
     const video = heroVideoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.play().catch(() => {});
+  }, []);
+
+  // Synchronous click handler on "Conhecer artista":
+  // Unlocks audio immediately (mobile & desktop) and opens the split-curtain animation
+  const handleEnter = useCallback(() => {
+    if (revealTriggeredRef.current) return;
+    revealTriggeredRef.current = true;
+
+    const video = heroVideoRef.current;
+    userExplicitlyMutedRef.current = false;
     if (video) {
-      video.volume = 1.0;
       video.muted = false;
+      video.volume = 1.0;
+      video.currentTime = 0;
       const p = video.play();
       if (p !== undefined) {
         p.then(() => {
@@ -40,24 +56,18 @@ export default function App() {
       }
     }
 
-    const revealTimer = window.setTimeout(() => {
-      setIsRevealing(true);
-    }, 950);
-
-    const doneTimer = window.setTimeout(() => {
+    setIsRevealing(true);
+    window.setTimeout(() => {
       setIntroDone(true);
-    }, 1900);
-
-    return () => {
-      window.clearTimeout(revealTimer);
-      window.clearTimeout(doneTimer);
-    };
+    }, 950);
   }, []);
 
   return (
     <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#050505] text-[#F4F4F5] selection:bg-white selection:text-black flex flex-col font-body">
-      {/* Automatic split-curtain entrance synced with Hero's single-element logo */}
-      {!introDone && <IntroEntrance isRevealing={isRevealing} />}
+      {/* Entrance screen with DJ NERY logo + "Conhecer artista" */}
+      {!introDone && (
+        <IntroEntrance isRevealing={isRevealing} onEnter={handleEnter} />
+      )}
 
       {/* Fixed Header */}
       <Navbar />

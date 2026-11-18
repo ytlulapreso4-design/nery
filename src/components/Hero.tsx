@@ -185,11 +185,11 @@ export const Hero: React.FC<HeroProps> = ({
 
         {/* Single-Element Logo Transition floating cleanly over split curtain */}
         <motion.div
-          initial={{ opacity: 0, scale: 1.24, y: 58 }}
+          initial={{ opacity: 0, scale: 1.18, y: 52 }}
           animate={
             isRevealing
               ? { opacity: 1, scale: 1, y: 0 }
-              : { opacity: 1, scale: 1.24, y: 58 }
+              : { opacity: 1, scale: 1.18, y: 52 }
           }
           transition={{
             duration: isRevealing ? 0.9 : 0.65,
