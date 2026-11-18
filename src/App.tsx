@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { IntroEntrance } from './components/IntroEntrance.tsx';
 import { Navbar } from './components/Navbar.tsx';
@@ -16,46 +16,28 @@ import { Booking } from './components/Booking.tsx';
 import { Footer } from './components/Footer.tsx';
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState(true);
-  const [hasEntered, setHasEntered] = useState(false);
-  const [logoConnected, setLogoConnected] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const userExplicitlyMutedRef = useRef(false);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
 
-  const handleStartReveal = useCallback(() => {
-    setHasEntered(true);
-    userExplicitlyMutedRef.current = false;
-    const video = heroVideoRef.current;
-    if (video) {
-      video.muted = false;
-      video.volume = 1.0;
-      video.currentTime = 0;
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsMuted(false);
-          })
-          .catch(() => {
-            video.muted = true;
-            setIsMuted(true);
-            video.play().catch(() => {});
-          });
-      }
-    }
+  useEffect(() => {
+    const revealTimer = window.setTimeout(() => {
+      setIsRevealing(true);
+    }, 1050);
+
+    const doneTimer = window.setTimeout(() => {
+      setIntroDone(true);
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(doneTimer);
+    };
   }, []);
 
   return (
     <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#050505] text-[#F4F4F5] selection:bg-white selection:text-black flex flex-col font-body">
-      {/* Automatic Animated Entrance with DJ NERY Logo connecting to Hero */}
-      {showIntro && (
-        <IntroEntrance
-          onStartReveal={handleStartReveal}
-          onLogoConnected={() => setLogoConnected(true)}
-          onComplete={() => setShowIntro(false)}
-        />
-      )}
+      {/* Smooth Backdrop Curtain synchronized with Hero's single-element logo */}
+      {!introDone && <IntroEntrance isRevealing={isRevealing} />}
 
       {/* Fixed Header */}
       <Navbar />
@@ -63,14 +45,7 @@ export default function App() {
       {/* Main Landing Page Sections */}
       <main className="flex-1 w-full max-w-[100vw] overflow-x-hidden">
         {/* 1. HERO / DJ NERY */}
-        <Hero
-          videoRef={heroVideoRef}
-          isMuted={isMuted}
-          setIsMuted={setIsMuted}
-          userExplicitlyMutedRef={userExplicitlyMutedRef}
-          hasEntered={hasEntered}
-          logoConnected={logoConnected}
-        />
+        <Hero isRevealing={isRevealing} introDone={introDone} />
 
         {/* MARQUEE DIVIDER (LOOP CONTÍNUO) */}
         <EletrofunkCommand />

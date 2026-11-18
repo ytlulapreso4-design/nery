@@ -1,27 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { MessageCircle, Volume2, VolumeX, Disc3 } from 'lucide-react';
 import { ARTIST_CONFIG } from '../config/media.ts';
 
 interface HeroProps {
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  isMuted: boolean;
-  setIsMuted: React.Dispatch<React.SetStateAction<boolean>>;
-  userExplicitlyMutedRef: React.MutableRefObject<boolean>;
-  hasEntered: boolean;
-  logoConnected: boolean;
+  isRevealing: boolean;
+  introDone: boolean;
 }
 
-export const Hero: React.FC<HeroProps> = ({
-  videoRef,
-  isMuted,
-  setIsMuted,
-  userExplicitlyMutedRef,
-  hasEntered,
-  logoConnected,
-}) => {
+export const Hero: React.FC<HeroProps> = ({ isRevealing, introDone }) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const userExplicitlyMutedRef = useRef(false);
 
   const enableSound = useCallback(() => {
     const video = videoRef.current;
@@ -37,7 +29,7 @@ export const Hero: React.FC<HeroProps> = ({
         // Browser policy blocked cold unmuted playback until user gesture
       });
     }
-  }, [videoRef, userExplicitlyMutedRef, setIsMuted]);
+  }, []);
 
   const handleTimeUpdate = () => {
     const video = videoRef.current;
@@ -60,30 +52,26 @@ export const Hero: React.FC<HeroProps> = ({
     }
   };
 
+  // Start playing background video immediately with sound on entry,
+  // and unlock instantaneously on first gesture if browser blocks cold audio.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (!hasEntered) {
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(() => {});
-      return;
-    }
+    video.volume = 1.0;
+    video.muted = false;
 
-    if (!userExplicitlyMutedRef.current) {
-      video.muted = false;
-      video.volume = 1.0;
-      const p = video.play();
-      if (p !== undefined) {
-        p.then(() => {
+    const initialPlay = video.play();
+    if (initialPlay !== undefined) {
+      initialPlay
+        .then(() => {
           setIsMuted(false);
-        }).catch(() => {
+        })
+        .catch(() => {
           video.muted = true;
           setIsMuted(true);
           video.play().catch(() => {});
         });
-      }
     }
 
     const handleGesture = () => {
@@ -112,7 +100,7 @@ export const Hero: React.FC<HeroProps> = ({
     return () => {
       cleanup();
     };
-  }, [hasEntered, videoRef, userExplicitlyMutedRef, setIsMuted, enableSound]);
+  }, [enableSound]);
 
   const toggleMute = () => {
     const video = videoRef.current;
@@ -130,7 +118,7 @@ export const Hero: React.FC<HeroProps> = ({
 
   return (
     <section className="relative w-full max-w-[100vw] h-[100svh] min-h-[660px] flex items-center justify-center overflow-hidden bg-[#050505]">
-      {/* Background Video Layer (Bright & Vivid) */}
+      {/* Background Video Layer (Bright, Vivid & Playing Immediately) */}
       <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
         {!videoError && (
           <video
@@ -150,14 +138,14 @@ export const Hero: React.FC<HeroProps> = ({
           />
         )}
 
-        {/* Fallback Obsidian & Brushed Silver Stage Backdrop */}
+        {/* Fallback Backdrop */}
         {(!videoLoaded || videoError) && (
           <div className="absolute inset-0 bg-[#050505] overflow-hidden w-full h-full">
             <img
               src={ARTIST_CONFIG.media.heroVideo.fallbackPoster}
               alt="DJ NERY ao vivo"
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover object-center opacity-60 contrast-110"
+              className="w-full h-full object-cover object-center opacity-65 contrast-110"
             />
           </div>
         )}
@@ -167,45 +155,62 @@ export const Hero: React.FC<HeroProps> = ({
           className="absolute inset-0 z-10 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse at center, rgba(5,5,5,0.42) 0%, rgba(5,5,5,0.14) 65%, rgba(5,5,5,0.48) 100%)',
+              'radial-gradient(ellipse at center, rgba(5,5,5,0.40) 0%, rgba(5,5,5,0.12) 65%, rgba(5,5,5,0.46) 100%)',
           }}
         />
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#050505]/75 to-transparent z-10 pointer-events-none" />
         <div className="absolute bottom-0 left-0 right-0 h-44 bg-gradient-to-t from-[#050505] via-[#050505]/45 to-transparent z-10 pointer-events-none" />
       </div>
 
-      {/* Hero Foreground Content */}
-      <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center flex flex-col items-center justify-center pt-16 sm:pt-20">
+      {/* Hero Foreground Content (No z-index on outer container so logo floats cleanly above intro curtain) */}
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center flex flex-col items-center justify-center pt-16 sm:pt-20">
         {/* Clean Unboxed Origin Metadata */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: hasEntered ? 1 : 0, y: hasEntered ? 0 : 10 }}
-          transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-center justify-center gap-2.5 text-xs font-mono tracking-[0.2em] uppercase text-zinc-200 mb-5 drop-shadow"
+          animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 10 }}
+          transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-20 flex items-center justify-center gap-2.5 text-xs font-mono tracking-[0.2em] uppercase text-zinc-200 mb-5 drop-shadow"
         >
           <span>Eletrofunk</span>
           <span aria-hidden="true" className="text-zinc-400">·</span>
           <span>Goiânia, GO</span>
         </motion.div>
 
-        {/* Custom Artist Logo Mark (Target destination for IntroEntrance morph) */}
-        <div className="relative my-1 select-none w-full flex justify-center">
-          <img
-            id="hero-main-logo"
-            src={ARTIST_CONFIG.media.logo.path}
-            alt="DJ NERY"
-            className={`h-24 sm:h-36 md:h-44 w-auto object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.85)] ${
-              logoConnected ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-        </div>
+        {/* Single-Element Seamless Logo Transition (Starts centered & scaled on dark curtain, settles smoothly into place) */}
+        <motion.div
+          initial={{ opacity: 0, scale: 1.28, y: 56 }}
+          animate={
+            isRevealing
+              ? { opacity: 1, scale: 1, y: 0 }
+              : { opacity: 1, scale: 1.28, y: 56 }
+          }
+          transition={{
+            duration: isRevealing ? 0.9 : 0.7,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+          className={`relative ${introDone ? 'z-20' : 'z-[55]'} my-1 select-none w-full flex justify-center`}
+        >
+          <div className="relative overflow-hidden px-4 py-2">
+            <img
+              src={ARTIST_CONFIG.media.logo.path}
+              alt="DJ NERY"
+              className="h-24 sm:h-36 md:h-44 w-auto object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.85)] relative z-10"
+            />
+            {!isRevealing && (
+              <div
+                aria-hidden="true"
+                className="animate-chrome-sweep absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent z-20 pointer-events-none"
+              />
+            )}
+          </div>
+        </motion.div>
 
         {/* Primary Display Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: hasEntered ? 1 : 0, y: hasEntered ? 0 : 14 }}
-          transition={{ duration: 0.65, delay: 0.32, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-5 font-display text-[clamp(2.25rem,4.5vw,3.75rem)] leading-[1.02] uppercase tracking-wide text-chrome max-w-3xl px-2 drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
+          animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 14 }}
+          transition={{ duration: 0.75, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-20 mt-5 font-display text-[clamp(2.25rem,4.5vw,3.75rem)] leading-[1.02] uppercase tracking-wide text-chrome max-w-3xl px-2 drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
           style={{ textWrap: 'balance' }}
         >
           {ARTIST_CONFIG.tagline}
@@ -214,9 +219,9 @@ export const Hero: React.FC<HeroProps> = ({
         {/* Concise Value Statement */}
         <motion.p
           initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: hasEntered ? 1 : 0, y: hasEntered ? 0 : 12 }}
-          transition={{ duration: 0.65, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-4 text-sm sm:text-base text-zinc-100 font-body max-w-xl px-4 leading-relaxed drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]"
+          animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 12 }}
+          transition={{ duration: 0.75, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-20 mt-4 text-sm sm:text-base text-zinc-100 font-body max-w-xl px-4 leading-relaxed drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]"
         >
           Graves de eletrofunk com pressão de festival, mixagem precisa e identidade de Goiânia para incendiar a pista do seu evento.
         </motion.p>
@@ -224,9 +229,9 @@ export const Hero: React.FC<HeroProps> = ({
         {/* Action Group */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: hasEntered ? 1 : 0, y: hasEntered ? 0 : 12 }}
-          transition={{ duration: 0.65, delay: 0.48, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto px-4 sm:px-0"
+          animate={{ opacity: isRevealing ? 1 : 0, y: isRevealing ? 0 : 12 }}
+          transition={{ duration: 0.75, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-20 mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto px-4 sm:px-0"
         >
           <button
             type="button"
